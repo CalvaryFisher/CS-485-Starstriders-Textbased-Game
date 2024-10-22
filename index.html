@@ -2,74 +2,106 @@
 <html>
 <head>
 <script src="https://code.jquery.com/jquery-3.7.1.js" integrity="sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4=" crossorigin="anonymous"></script>
+
+<script src="js/sprite.js"></script>
+
+
 </head>
-<body>
-
-<div id="main" style="display:none">
-<div id="game_text" style="font-size:100px"></div>
-<div id="game_img"></div>
-<button id="but_a" onclick="key_input('A');" style="font-size:100px" >A</button>
-<button id="but_b" onclick="key_input('B');" style="font-size:100px">B</button>
-</div>
-
-
-<div id="splash" style="font-size:100px"> Loading...<br>
-<img src="mario.gif">
- </div>
+<body style="">
+<canvas id='mycanvas' style="">
+</canvas>
 
 
 <script>
-var game_data;
-var current_state;
+    const canvas = document.querySelector("canvas");
+    const offscreen = new OffscreenCanvas(256, 256);
+    const sprites_to_draw = new Array(2); 
+    var draw_loop_timeout;
+    var img = new Image();
+    var color_map = new Image();
+    
+    sprites_to_draw[0] = new Array(0); //background and 
+    sprites_to_draw[1] = new Array(0); //forground
 
-var stim = 0;
-var points = 0;
+    $.getJSON( "Sonic/animationData.json", function( data ) {
+        //sprites_to_draw[1].push( new Sprite(data, 0 ,0, "idleSpin") );
+        //sprites_to_draw[1].push( new Sprite(data, 100 ,100, "idleWave") );
+        sprites_to_draw[1].push( new Sprite(data, 150 ,650, "idle") );
 
-setTimeout(function(){
-            $('#splash').hide();
-            $('#main').show();
-            }, 5000);
+    });
+
+    $.getJSON( "acid_bk/animationData.json", function( data ) {
+        sprites_to_draw[0].push( new BackgroundSprite(data) );
+    });
 
 
-$.getJSON( "game.json", function( data ) {
-        game_data = data;
-        current_state = data['start_state'];
-        $('#game_text').html( game_data['states'][ data['start_state'] ]['text'] ); 
+    $( document ).ready(function() {
+        console.log( "Page is now ready" );
+        resize();
 
-});
+        /*(
+        img.onload = function() {
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        };
+        img.src = 'imgs/bk_lord.jpg';
+        */
+      
+        color_map.onload = function() {
+            var ctx = offscreen.getContext('2d');
+            ctx.drawImage(color_map, 0, 0, canvas.width, canvas.height);
+        };
+        color_map.src = 'imgs/bk_lord.png';
+     
+        draw_loop_timeout = setInterval(draw_loop, 33);
+    });
 
-function next_state( state) {
-    console.log("Current State = " + current_state + " --> New State= " + state) 
-    current_state = state
-    if (game_data['states'][ current_state ]['text'] != null){
-        $('#game_text').html( game_data['states'][ current_state ]['text'] );
-    } else {
-        console.log("no text");
-        if (game_data['states'][ current_state ]['stim_change'] != null){
-            console.log("+ stim " + game_data['states'][ current_state ]['stim_change'] ) 
-            stim = stim + game_data['states'][ current_state ]['stim_change']
+    //window.addEventListener('resize', resize);
+
+    let start, previousTimeStamp;
+
+    function draw_loop(){
+
+        if (start === undefined) {
+            start = Date.now();
+        }else if ( (Date.now() - start) < 100){
+            requestAnimationFrame(draw_loop);
+            return;
+        };
+        start = Date.now();
+        
+        var background_length = sprites_to_draw[0].length;
+        var forground_length  = sprites_to_draw[1].length;
+        var has_background_changed = false;
+
+        const context = canvas.getContext('2d');
+        //context.clearRect(0, 0, canvas.width, canvas.height);
+
+        //Draw background sprites
+        for(var i = 0; i < background_length; i++){
+            has_background_changed = sprites_to_draw[0][i].draw();
         }
-        if (game_data['states'][ current_state ]['point_change'] != null){
-            console.log("+ point " + game_data['states'][ current_state ]['stim_change'] ) 
-            points = points + game_data['states'][ current_state ]['point_change']
+
+        //Draw forground sprites
+        for(var i = 0; i < forground_length; i++){
+            sprites_to_draw[1][i].draw( { 'has_background_changed' : has_background_changed,
+                                          'key_change' : false
+                                        }
+            );
         }
-        if (game_data['states'][ current_state ]['image_change'] != null){
-            $("#game_img").html( game_data['states'][ current_state ]['image_change'] );
-        }
-        next_state( game_data['states'][ current_state ]['next_state']) 
+        requestAnimationFrame(draw_loop);
     }
-}
 
+    function resize(){
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
 
-function key_input(what_key){
-    for(i=0; i< game_data['states'][current_state]['next_state'].length; i++){
-        if( what_key == game_data['states'][current_state]['next_state'][i]['key_input']) {
-            next_state(game_data['states'][current_state]['next_state'][i]['state_name'])
-        } 
+        offscreen.width = window.innerWidth;
+        offscreen.height = window.innerHeight;
+
     }
-
-    console.log(what_key);
-}
 </script>
+
 </body>
 </html>
+
